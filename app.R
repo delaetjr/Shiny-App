@@ -3,14 +3,79 @@ library(dplyr)
 library(ggplot2)
 library(plotly)
 library(DT)
+library(nflreadr)
 
 # Load your combined dataset (already merged)
 all_data <- read.csv("all_data.csv")  # Adjust the path if necessary
+
+df <- load_players()
+
+all_data <- all_data %>%
+  left_join(df %>% select(smart_id, birth_date), by = "smart_id")
+
+
+all_data <- all_data %>%
+  mutate(
+    birth_year = lubridate::year(as.Date(birth_date)),  # Extract birth year
+    birth_month_day = format(as.Date(birth_date), "%m-%d"),  # Extract MM-DD format
+    reference_date = as.Date(paste0(Year, "-09-04")),  # Define Sept 4th of each season
+    age = floor(as.numeric(difftime(reference_date, as.Date(birth_date), units = "days")) / 365.25)  # Compute age
+  )
+
+
 final_blocking <- read.csv("final_blocking.csv")
 final_defense <- read.csv("final_defense.csv")
 final_rushing <- read.csv("final_rushing.csv")
 final_receiving <- read.csv("final_receiving.csv")
 final_passing <- read.csv("final_passing.csv")
+
+
+final_defense <- final_defense %>%
+  left_join(df %>% select(smart_id, birth_date), by = "smart_id") %>%
+  mutate(
+    birth_year = lubridate::year(as.Date(birth_date)),  # Extract birth year
+    birth_month_day = format(as.Date(birth_date), "%m-%d"),  # Extract MM-DD format
+    reference_date = as.Date(paste0(Year, "-09-04")),  # Define Sept 4th of each season
+    age = floor(as.numeric(difftime(reference_date, as.Date(birth_date), units = "days")) / 365.25)  # Compute age
+  ) 
+
+final_passing <- final_passing %>%
+  left_join(df %>% select(smart_id, birth_date), by = "smart_id") %>%
+  mutate(
+    birth_year = lubridate::year(as.Date(birth_date)),  
+    birth_month_day = format(as.Date(birth_date), "%m-%d"),  
+    reference_date = as.Date(paste0(Year, "-09-04")),  
+    age = floor(as.numeric(difftime(reference_date, as.Date(birth_date), units = "days")) / 365.25)  
+  ) 
+
+final_rushing <- final_rushing %>%
+  left_join(df %>% select(smart_id, birth_date), by = "smart_id") %>%
+  mutate(
+    birth_year = lubridate::year(as.Date(birth_date)),  
+    birth_month_day = format(as.Date(birth_date), "%m-%d"),  
+    reference_date = as.Date(paste0(Year, "-09-04")),  
+    age = floor(as.numeric(difftime(reference_date, as.Date(birth_date), units = "days")) / 365.25)  
+  ) 
+
+final_receiving <- final_receiving %>%
+  left_join(df %>% select(smart_id, birth_date), by = "smart_id") %>%
+  mutate(
+    birth_year = lubridate::year(as.Date(birth_date)),  
+    birth_month_day = format(as.Date(birth_date), "%m-%d"),  
+    reference_date = as.Date(paste0(Year, "-09-04")),  
+    age = floor(as.numeric(difftime(reference_date, as.Date(birth_date), units = "days")) / 365.25)  
+  ) 
+
+final_blocking <- final_blocking %>%
+  left_join(df %>% select(smart_id, birth_date), by = "smart_id") %>%
+  mutate(
+    birth_year = lubridate::year(as.Date(birth_date)),  
+    birth_month_day = format(as.Date(birth_date), "%m-%d"),  
+    reference_date = as.Date(paste0(Year, "-09-04")),  
+    age = floor(as.numeric(difftime(reference_date, as.Date(birth_date), units = "days")) / 365.25)  
+  ) 
+
+
 
 # Replace NA values in `draftround` with "UDFA" for all datasets
 final_blocking <- final_blocking %>%
@@ -49,6 +114,7 @@ ui <- fluidPage(
         sidebarPanel(
           selectInput("facet_by_round_position", "Facet By Draft Round (Optional):", 
                       choices = c("None" = "none", "Draft Round" = "draftround")),
+          selectInput("position_x_axis", "X-Axis:", choices = c("Season" = "season", "Age" = "age"), selected = "season"),
           selectizeInput("highlight_position", "Highlight Position:", choices = NULL),
           selectizeInput("highlight_player_position", "Highlight Player (Optional):", choices = NULL, multiple = FALSE),
           # ✅ NEW Snap Count Sliders
@@ -64,7 +130,7 @@ ui <- fluidPage(
                       min = 0, max = 1500, value = c(0, 1500), step = 25),
           actionButton("apply_filters_position", "Apply Filters")
         ),
-        mainPanel(plotOutput("position_comparison_chart"))
+        mainPanel(plotlyOutput("position_comparison_chart", height = "900px"))
       )
     ),
     # Team Comparison Tab (FULLY PRESERVED)
@@ -73,6 +139,7 @@ ui <- fluidPage(
       sidebarLayout(
         sidebarPanel(
           selectizeInput("team_comparison", "Select Team:", choices = NULL),
+          selectInput("team_x_axis", "Compare By:", choices = c("Season" = "season", "Age" = "age")),
           selectInput("facet_by_round_team", "Facet By Draft Round (Optional):", 
                       choices = c("None" = "none", "Draft Round" = "draftround")),
           selectizeInput("filter_positions_team", "Filter Positions (Optional):", choices = NULL, multiple = TRUE),
@@ -90,7 +157,7 @@ ui <- fluidPage(
                       min = 0, max = 1500, value = c(0, 1500), step = 25),
           actionButton("apply_filters_team", "Apply Filters")
         ),
-        mainPanel(plotOutput("team_comparison_chart"))
+        mainPanel(plotlyOutput("team_comparison_chart", height = "900px"))
       )
     ),
     # Scatterplot Tabs for Each Dataset
@@ -114,7 +181,7 @@ ui <- fluidPage(
         
         actionButton("apply_filters_defense", "Apply Filters")
       ),
-      mainPanel(plotlyOutput("scatter_defense"))
+      mainPanel(plotlyOutput("scatter_defense", height = "900px"))
     ))
     ,
     
@@ -137,7 +204,7 @@ ui <- fluidPage(
         
         actionButton("apply_filters_passing", "Apply Filters")
       ),
-      mainPanel(plotlyOutput("scatter_passing"))
+      mainPanel(plotlyOutput("scatter_passing", height = "900px"))
     ))
     ,
     
@@ -161,7 +228,7 @@ ui <- fluidPage(
         
         actionButton("apply_filters_rushing", "Apply Filters")
       ),
-      mainPanel(plotlyOutput("scatter_rushing"))
+      mainPanel(plotlyOutput("scatter_rushing", height = "900px"))
     ))
     ,
     
@@ -185,7 +252,7 @@ ui <- fluidPage(
         
         actionButton("apply_filters_receiving", "Apply Filters")
       ),
-      mainPanel(plotlyOutput("scatter_receiving"))
+      mainPanel(plotlyOutput("scatter_receiving", height = "900px"))
     ))
     ,
     
@@ -209,7 +276,7 @@ ui <- fluidPage(
         
         actionButton("apply_filters_blocking", "Apply Filters")
       ),
-      mainPanel(plotlyOutput("scatter_blocking"))
+      mainPanel(plotlyOutput("scatter_blocking", height = "900px"))
     )),
   
     
@@ -218,10 +285,10 @@ ui <- fluidPage(
         selectInput("scheme_position", "Select Position:", choices = NULL),
         selectizeInput("scheme_player", "Select Player:", choices = NULL, multiple = FALSE),
         selectInput("scheme_metric", "Select Scheme Metric:", choices = NULL),
-        selectInput("scheme_x_axis", "X-Axis (Time):", choices = c("Year", "season")),
+        selectInput("scheme_x_axis", "X-Axis (Time):", choices = c("Year", "season", "age")),
         actionButton("apply_scheme_filters", "Apply Filters")
       ),
-      mainPanel(plotOutput("scheme_alignment_chart"))
+      mainPanel(plotlyOutput("scheme_alignment_chart", height = "900px"))
     )),
     
     tabPanel("Metric Over Time", sidebarLayout(
@@ -230,6 +297,7 @@ ui <- fluidPage(
         selectInput("metric_variable", "Select Metric:", choices = NULL),  # ✅ Fixed ID
         selectizeInput("metric_highlight_player", "Highlight Player:", choices = NULL, multiple = FALSE),
         # ✅ Snap Count Sliders
+        selectInput("metric_x_axis", "Compare By:", choices = c("Season" = "season", "Age" = "age")),
         sliderInput("snap_counts_defense_range_metric", "Defense Snaps:", min = 0, max = 1500, value = c(0, 1500)),
         sliderInput("routes_receiving_range_metric", "Routes Run:", min = 0, max = 800, value = c(0, 800)),
         sliderInput("attempts_rushing_range_metric", "Rush Attempts:", min = 0, max = 500, value = c(0, 500)),
@@ -238,7 +306,7 @@ ui <- fluidPage(
         actionButton("apply_metric_filters", "Apply Filters")  # ✅ Removed Facet Input (No "draftround" Needed)
       ),
       mainPanel(
-        plotOutput("metric_over_time_chart")
+        plotlyOutput("metric_over_time_chart", height = "900px")
       )
     ))
   )
@@ -250,7 +318,9 @@ server <- function(input, output, session) {
   # Filtered Data (PRESERVED)
   filtered_data <- reactive({
     all_data <- all_data %>%
-      mutate(grades = coalesce(grades_offense, grades_defense))  # Combine grades
+      mutate(
+        grades = coalesce(grades_offense, grades_defense)
+      ) 
     
     
     # ✅ Apply Snap Count Filtering (Corrected Positions)
@@ -336,145 +406,405 @@ server <- function(input, output, session) {
   
   
   # Position Comparison Chart (FULLY PRESERVED)
-  output$position_comparison_chart <- renderPlot({
+  output$position_comparison_chart <- renderPlotly({
+    # ✅ Retrieve filtered dataset ONCE
     data <- filtered_data()
     req(data)
     
     highlight_position <- input$highlight_position
     highlight_player <- input$highlight_player_position
+    x_axis_choice <- input$position_x_axis  # "season" or "age"
     
-    if (input$facet_by_round_position == "draftround") {
-      data <- data %>%
-        group_by(season, position, draftround) %>%
-        summarize(mean_grades = mean(grades, na.rm = TRUE), .groups = "drop")
-    } else {
-      data <- data %>%
-        group_by(season, position) %>%
-        summarize(mean_grades = mean(grades, na.rm = TRUE), .groups = "drop")
-    }
+    # ✅ Ensure `draftround` exists before faceting
+    has_draftround <- "draftround" %in% colnames(data)
     
+    # ✅ Assign `highlight_flag` BEFORE Aggregation
     data <- data %>%
       mutate(highlight_flag = ifelse(position == highlight_position, "highlight", "dim"))
     
-    highlight_player_data <- if (!is.null(highlight_player) && highlight_player != "") {
-      filtered_data() %>% filter(player == highlight_player)
+    # ✅ Extract Highlight Player Data BEFORE Aggregation
+    highlight_player_data <- NULL
+    if (!is.null(highlight_player) && highlight_player != "") {
+      player_data <- data %>% filter(player == highlight_player)
+      if (nrow(player_data) > 0) {
+        player_draftround <- unique(player_data$draftround)
+        highlight_player_data <- player_data %>%
+          select(player, position, .data[[x_axis_choice]], grades, draftround, highlight_flag) %>%
+          filter(draftround == player_draftround)
+      }
+    }
+    
+    # ✅ Apply Grouping Logic
+    if (input$facet_by_round_position == "draftround" && has_draftround) {
+      combined_data <- data %>%
+        group_by(.data[[x_axis_choice]], position, draftround, highlight_flag) %>%
+        summarize(
+          grades = mean(grades, na.rm = TRUE),
+          count = n(),
+          .groups = "drop"
+        ) %>%
+        ungroup()
+      
+      # ✅ Ensure at least one non-empty draft round is available
+      unique_draftrounds <- unique(combined_data$draftround)
+      
+      # ✅ Generate plots for each draft round
+      plots_list <- lapply(unique_draftrounds, function(draft_round) {
+        df <- combined_data %>% filter(draftround == draft_round)
+        
+        plot_obj <- plot_ly(
+          data = df,
+          x = ~.data[[x_axis_choice]],
+          y = ~grades,
+          color = ~highlight_flag,
+          split = ~position,
+          colors = c("dim" = "grey", "highlight" = "blue"),
+          showlegend = FALSE,
+          type = 'scatter',
+          mode = 'lines+markers',
+          hoverinfo = ifelse(df$highlight_flag == "highlight", "text", "none"),
+          text = ~paste0(
+            "Position: ", position, "<br>",
+            "Mean Grade: ", round(grades, 2), "<br>",
+            "Entries: ", count, "<br>",
+            x_axis_choice, ": ", .data[[x_axis_choice]]
+          )
+        )
+        
+        # ✅ Add Highlighted Player Data to the Correct Draft Round
+        if (!is.null(highlight_player_data) && nrow(highlight_player_data) > 0) {
+          highlight_df <- highlight_player_data %>% filter(draftround == draft_round)
+          if (nrow(highlight_df) > 0) {
+            plot_obj <- plot_obj %>%
+              add_trace(
+                data = highlight_df,
+                x = ~.data[[x_axis_choice]],
+                y = ~grades,
+                type = "scatter",
+                mode = "markers",
+                marker = list(color = "purple", size = 7, symbol = "x"),
+                name = highlight_player,
+                hoverinfo = "text",
+                text = ~paste0("Player: ", player, "<br>Grade: ", round(grades, 2))
+              )
+          }
+        }
+        
+        plot_obj %>%
+          layout(
+            title = "",  # ✅ Remove subplot title (handled by annotation)
+            annotations = list(
+              list(
+                x = 0, y = 1,  # ✅ Top-left corner
+                xref = "paper", yref = "paper",
+                text = paste("Draft Round:", draft_round),
+                showarrow = FALSE,
+                font = list(size = 12, color = "black"),
+                xanchor = "left", yanchor = "top"
+              )
+            ),
+            yaxis = list(title = "Grades", range = c(20, 100)),
+            xaxis = list(title = ifelse(x_axis_choice == "season", "Season", "Age"))  # ✅ Fix X-axis label
+          )
+      })
+      
+      # ✅ Dynamically calculate number of rows
+      nrows_dynamic <- max(1, ceiling(0.5 * length(plots_list)))
+      
+      # ✅ Use `do.call(subplot, ...)` to ensure proper grid structure
+      final_plot <- do.call(subplot, c(plots_list, list(nrows = nrows_dynamic, shareX = TRUE, titleY = TRUE))) %>%
+        layout(
+          title = "Comparison of Positions Across All Data",
+          showlegend = FALSE
+        )
     } else {
-      NULL
+      combined_data <- data %>%
+        group_by(.data[[x_axis_choice]], position, highlight_flag) %>%
+        summarize(
+          grades = mean(grades, na.rm = TRUE),
+          count = n(),
+          .groups = "drop"
+        ) %>%
+        ungroup()
+      
+      final_plot <- plot_ly(
+        data = combined_data,
+        x = ~.data[[x_axis_choice]], 
+        y = ~grades, 
+        color = ~highlight_flag, 
+        split = ~position,
+        colors = c("dim" = "grey", "highlight" = "blue"),
+        showlegend = FALSE,
+        type = 'scatter', 
+        mode = 'lines+markers',
+        hoverinfo = ifelse(combined_data$highlight_flag == "highlight", "text", "none"),
+        text = ~paste0(
+          "Position: ", position, "<br>",
+          "Mean Grade: ", round(grades, 2), "<br>",
+          "Entries: ", count, "<br>",
+          x_axis_choice, ": ", .data[[x_axis_choice]]
+        )
+      ) 
+      
+      # ✅ Add Highlighted Player (Ensures It Always Displays)
+      if (!is.null(highlight_player_data) && nrow(highlight_player_data) > 0) {
+        final_plot <- final_plot %>%
+          add_trace(
+            data = highlight_player_data,
+            x = ~.data[[x_axis_choice]],
+            y = ~grades,
+            type = "scatter",
+            mode = "markers",
+            marker = list(color = "purple", size = 7, symbol = "x"),
+            name = highlight_player,
+            hoverinfo = "text",
+            text = ~paste0("Player: ", player, "<br>Grade: ", round(grades, 2))
+          )
+      }
+      
+      final_plot <- final_plot %>%
+        layout(
+          title = "Comparison of Positions Across All Data",
+          xaxis = list(title = ifelse(x_axis_choice == "season", "Season", "Age")),  # ✅ Fix X-axis label
+          yaxis = list(title = "Grades", range = c(30, 100)),
+          showlegend = FALSE
+        )
     }
     
-    p <- ggplot(data, aes(x = season, y = mean_grades, group = position, color = highlight_flag)) +
-      geom_line(aes(size = highlight_flag)) +
-      scale_color_manual(values = c("dim" = "grey", "highlight" = "blue")) +
-      scale_size_manual(values = c("dim" = 0.5, "highlight" = 1.5), guide = "none") +
-      labs(title = "Comparison of Positions Across All Data", x = "Season", y = "Grades") +
-      theme_minimal() + theme(legend.position = "none")
-    
-    if (!is.null(highlight_player_data) && nrow(highlight_player_data) > 0) {
-      p <- p + geom_point(data = highlight_player_data, aes(x = season, y = grades), color = "purple", size = 3, shape = 4)
-    }
-    
-    if (input$facet_by_round_position == "draftround") {
-      p <- p + facet_wrap(~draftround, scales = "fixed")
-    }
-    
-    p
+    return(final_plot)
   })
   
+  
+  
+  
+  observe({
+    dataset <- filtered_data()
+    if (!is.null(dataset) && nrow(dataset) > 0) {
+      
+      # ✅ Preserve user's previously selected inputs safely
+      current_team_comparison <- isolate(input$team_comparison)
+      current_filter_positions_team <- isolate(input$filter_positions_team)
+      current_highlight_player_team <- isolate(input$highlight_player_team)
+      
+      # ✅ Select the first available team as default if `NULL`
+      default_team <- if (is.null(current_team_comparison) || !current_team_comparison %in% dataset$draft_club) {
+        unique(dataset$draft_club)[1]  # Select the first team in dataset
+      } else {
+        current_team_comparison
+      }
+      
+      # ✅ Debugging: Check what's happening before updates
+      print(paste("Current Team Comparison (Before Update):", current_team_comparison))
+      print(paste("Default Team Selected:", default_team))
+      print(paste("Available Teams in Dataset:", paste(unique(dataset$draft_club), collapse = ", ")))
+      print(paste("Current Filtered Positions:", paste(current_filter_positions_team, collapse = ", ")))
+      print(paste("Available Positions:", paste(unique(dataset$position), collapse = ", ")))
+      print(paste("Current Highlight Player Team:", current_highlight_player_team))
+      print(paste("Available Players:", paste(unique(dataset$player), collapse = ", ")))
+      
+      # ✅ Ensure that these selections exist before applying them
+      updateSelectizeInput(
+        session, "team_comparison",
+        choices = unique(dataset$draft_club),
+        selected = default_team,  # ✅ Set default team
+        server = TRUE
+      )
+      
+      updateSelectizeInput(
+        session, "filter_positions_team",
+        choices = unique(dataset$position),
+        selected = if (isTruthy(current_filter_positions_team) && all(current_filter_positions_team %in% dataset$position)) 
+          current_filter_positions_team else NULL,
+        server = TRUE
+      )
+      
+      updateSelectizeInput(
+        session, "highlight_player_team",
+        choices = unique(dataset$player),
+        selected = if (isTruthy(current_highlight_player_team) && current_highlight_player_team %in% dataset$player) 
+          current_highlight_player_team else NULL,
+        server = TRUE
+      )
+    }
+  })
+  
+  
+  
   # Team Comparison Chart (FULLY PRESERVED)
-  output$team_comparison_chart <- renderPlot({
+  output$team_comparison_chart <- renderPlotly({
     data <- filtered_data()
     req(data)
     
-    # ✅ Ensure a team is selected before proceeding
     req(input$team_comparison, cancelOutput = TRUE)
     
-    # ✅ Ensure sliders are not NULL and have valid default values
-    snap_defense_range <- input$snap_counts_defense_range_team %||% c(0, 1500)
-    routes_receiving_range <- input$routes_receiving_range_team %||% c(0, 800)
-    attempts_rushing_range <- input$attempts_rushing_range_team %||% c(0, 500)
-    attempts_passing_range <- input$attempts_passing_range_team %||% c(0, 800)
-    snap_block_range <- input$snap_counts_block_range_team %||% c(0, 1500)
+    x_axis_choice <- input$team_x_axis  # "season" or "age"
+    highlight_player <- input$highlight_player_team
     
-    # ✅ Apply Position Filtering First
+    # ✅ Apply Position Filtering
     if (!is.null(input$filter_positions_team) && length(input$filter_positions_team) > 0) {
       data <- data %>% filter(position %in% input$filter_positions_team)
     }
     
-    # ✅ Apply Snap Count Filtering Safely
+    # ✅ Group other teams into "Rest of NFL"
     data <- data %>%
-      filter(
-        (position %in% c("ED", "CB", "S", "LB", "NT", "SLOT", "FS", "DI") & 
-           between(snap_counts_defense, snap_defense_range[1], snap_defense_range[2])) |
-          
-          (position %in% c("WR", "TE") & 
-             between(routes, routes_receiving_range[1], routes_receiving_range[2])) |
-          
-          (position == "HB" & 
-             between(attempts, attempts_rushing_range[1], attempts_rushing_range[2])) |
-          
-          (position == "QB" & 
-             between(attempts, attempts_passing_range[1], attempts_passing_range[2])) |
-          
-          (position %in% c("G", "T", "C") & 
-             between(snap_counts_block, snap_block_range[1], snap_block_range[2]))
-      )
+      mutate(team_group = ifelse(team_name == input$team_comparison, team_name, "Rest of NFL"))
     
-    # ✅ Filter selected team
-    team_data <- data %>% filter(draft_club == input$team_comparison)
-    rest_of_nfl_data <- data %>% filter(draft_club != input$team_comparison)
+    # ✅ Define consistent color mapping
+    team_color_map <- setNames(c("blue", "red"), c("Rest of NFL", input$team_comparison))
     
-    # ✅ Ensure `draftround` column exists before faceting
+    # ✅ Check for `draftround`
     has_draftround <- "draftround" %in% colnames(data)
-    apply_faceting <- (input$facet_by_round_team == "draftround" && has_draftround)
     
-    # ✅ Compute averages correctly (group by `season` only when faceting is OFF)
-    team_mean <- team_data %>%
-      group_by(season, draftround = if (apply_faceting) draftround else NA) %>%
-      summarize(mean_grade = mean(grades, na.rm = TRUE), .groups = "drop") %>%
-      mutate(group = input$team_comparison)
-    
-    nfl_mean <- rest_of_nfl_data %>%
-      group_by(season, draftround = if (apply_faceting) draftround else NA) %>%
-      summarize(mean_grade = mean(grades, na.rm = TRUE), .groups = "drop") %>%
-      mutate(group = "Rest of NFL")
-    
-    combined_data <- bind_rows(team_mean, nfl_mean)
-    
-    # ✅ Debugging: Ensure dataset is valid
-    if (nrow(combined_data) == 0) {
-      print("Final dataset is empty.")
-      return(ggplot() + theme_minimal() + labs(title = paste("No data available for", input$team_comparison, "after filtering.")))
-    }
-    
-    # ✅ Highlight player logic (Ensure valid selection)
-    highlight_player_data <- if (!is.null(input$highlight_player_team) && input$highlight_player_team != "") {
-      data %>% filter(player == input$highlight_player_team)
-    } else {
-      NULL
-    }
-    
-    # ✅ Base Plot
-    p <- ggplot(combined_data, aes(x = season, y = mean_grade, color = group)) +
-      geom_line(size = 1) +
-      theme_minimal() +
-      labs(title = paste("Comparison of", input$team_comparison, "vs. Rest of NFL"), 
-           x = "Season", y = "Mean Grades", color = "Group")
-    
-    # ✅ Highlight Player if selected
-    if (!is.null(highlight_player_data) && nrow(highlight_player_data) > 0) {
-      p <- p + geom_point(data = highlight_player_data, aes(x = season, y = grades), 
-                          color = "purple", size = 3, shape = 4)
-    }
-    
-    # ✅ Apply Faceting Correctly
-    if (apply_faceting) {
-      if (n_distinct(combined_data$draftround) > 1) {
-        p <- p + facet_wrap(~draftround, scales = "fixed")
+    # ✅ Extract Highlight Player Data BEFORE Aggregation
+    highlight_player_data <- NULL
+    if (!is.null(highlight_player) && highlight_player != "") {
+      player_data <- data %>% filter(player == highlight_player)
+      if (nrow(player_data) > 0) {
+        player_draftround <- unique(player_data$draftround)  # ✅ Get the player's draft round
+        highlight_player_data <- player_data %>%
+          select(player, position, .data[[x_axis_choice]], grades, draftround, team_group) %>%
+          filter(draftround == player_draftround)  # ✅ Show only in their draft round
       }
     }
     
-    p
+    # ✅ Apply Grouping Logic
+    if (input$facet_by_round_team == "draftround" && has_draftround) {
+      combined_data <- data %>%
+        group_by(.data[[x_axis_choice]], team_group, draftround) %>%
+        summarize(
+          grades = mean(grades, na.rm = TRUE),
+          count = n(),
+          .groups = "drop"
+        ) %>%
+        ungroup()
+      
+      unique_draftrounds <- unique(combined_data$draftround)
+      
+      # ✅ Generate plots for each draft round
+      plots_list <- lapply(unique_draftrounds, function(draft_round) {
+        df <- combined_data %>% filter(draftround == draft_round)
+        
+        plot_obj <- plot_ly(
+          data = df,
+          x = ~.data[[x_axis_choice]],
+          y = ~grades,
+          color = ~team_group,
+          colors = team_color_map,  # ✅ Apply consistent color mapping
+          showlegend = FALSE,
+          type = 'scatter',
+          mode = 'lines+markers',
+          hoverinfo = 'text',
+          text = ~paste0(
+            "Team: ", team_group, "<br>",
+            "Mean Grade: ", round(grades, 2), "<br>",
+            "Entries: ", count, "<br>",
+            x_axis_choice, ": ", .data[[x_axis_choice]]
+          )
+        )
+        
+        # ✅ Add Highlighted Player Data to the Correct Draft Round
+        if (!is.null(highlight_player_data) && nrow(highlight_player_data) > 0) {
+          highlight_df <- highlight_player_data %>% filter(draftround == draft_round)
+          if (nrow(highlight_df) > 0) {
+            plot_obj <- plot_obj %>%
+              add_trace(
+                data = highlight_df,
+                x = ~.data[[x_axis_choice]],
+                y = ~grades,
+                type = "scatter",
+                mode = "markers",
+                marker = list(color = "purple", size = 7, symbol = "x"),
+                name = highlight_player,
+                hoverinfo = "text",
+                text = ~paste0("Player: ", player, "<br>Grade: ", round(grades, 2))
+              )
+          }
+        }
+        
+        plot_obj %>%
+          layout(
+            title = "",
+            annotations = list(
+              list(
+                x = 0, y = 1,  # ✅ Top-left corner
+                xref = "paper", yref = "paper",
+                text = paste("Draft Round:", draft_round),
+                showarrow = FALSE,
+                font = list(size = 12, color = "black"),
+                xanchor = "left", yanchor = "top"
+              )
+            ),
+            yaxis = list(title = "Grades", range = c(20, 100)),
+            xaxis = list(title = ifelse(x_axis_choice == "season", "Season", "Age"))  # ✅ Fix X-axis label
+          )
+      })
+      
+      # ✅ Dynamically calculate number of rows for subplot
+      nrows_dynamic <- max(1, ceiling(0.5 * length(plots_list)))
+      
+      final_plot <- do.call(subplot, c(plots_list, list(nrows = nrows_dynamic, shareX = TRUE, titleY = TRUE))) %>%
+        layout(
+          title = paste("Comparison of", input$team_comparison, "vs. Rest of NFL"),
+          showlegend = FALSE
+        )
+    } else {
+      combined_data <- data %>%
+        group_by(.data[[x_axis_choice]], team_group) %>%
+        summarize(
+          grades = mean(grades, na.rm = TRUE),
+          count = n(),
+          .groups = "drop"
+        ) %>%
+        ungroup()
+      
+      final_plot <- plot_ly(
+        data = combined_data,
+        x = ~.data[[x_axis_choice]], 
+        y = ~grades, 
+        color = ~team_group, 
+        colors = team_color_map,
+        showlegend = FALSE,
+        type = 'scatter', 
+        mode = 'lines+markers',
+        hoverinfo = 'text',
+        text = ~paste0(
+          "Team: ", team_group, "<br>",
+          "Mean Grade: ", round(grades, 2), "<br>",
+          "Entries: ", count, "<br>",
+          x_axis_choice, ": ", .data[[x_axis_choice]]
+        )
+      ) 
+      
+      # ✅ Add Highlighted Player Data
+      if (!is.null(highlight_player_data) && nrow(highlight_player_data) > 0) {
+        final_plot <- final_plot %>%
+          add_trace(
+            data = highlight_player_data,
+            x = ~.data[[x_axis_choice]],
+            y = ~grades,
+            type = "scatter",
+            mode = "markers",
+            marker = list(color = "purple", size = 7, symbol = "x"),
+            name = highlight_player,
+            hoverinfo = "text",
+            text = ~paste0("Player: ", player, "<br>Grade: ", round(grades, 2))
+          )
+      }
+      
+      final_plot <- final_plot %>%
+        layout(
+          title = paste("Comparison of", input$team_comparison, "vs. Rest of NFL"),
+          xaxis = list(title = ifelse(x_axis_choice == "season", "Season", "Age")),
+          yaxis = list(title = "Grades", range = c(40, 100)),
+          showlegend = FALSE
+        )
+    }
+    
+    return(final_plot)
   })
+  
+  
+  
   
   
   
@@ -492,24 +822,24 @@ server <- function(input, output, session) {
   excluded_vars <- list(
     "Defense" = c("player_id", "player_game_count", "declined_penalties", "forced_fumbles", "franchise_id", 
                   "fumble_recoveries", "fumble_recovery_touchdowns", "interception_touchdowns", "interceptions", 
-                  "longest", "safeties", "Year", "draftround", "draft_number", "rookie_year", "season"),
+                  "longest", "safeties", "Year", "draftround", "draft_number", "rookie_year", "season", "birth_year"),
     
     "Passing" = c("player_id", "player_game_count", "aimed_passes", "big_time_throws", "completions", 
                   "declined_penalties", "drops", "first_downs", "franchise_id", "grades_hands_fumble", 
                   "penalties", "sacks", "spikes", "thrown_aways", "turnover_worthy_plays", 
-                  "Year", "draftround", "draft_number", "rookie_year", "season"),
+                  "Year", "draftround", "draft_number", "rookie_year", "season", "birth_year"),
     
     "Rushing" = c("player_id", "player_game_count", "breakaway_attempts", "declined_penalties", "drops", 
                   "designed_yards", "first_downs", "franchise_id", "grades_hands_fumble", 
                   "grades_offense_penalty", "grades_pass", "grades_run_block", "longest", 
-                  "penalties", "Year", "draftround", "draft_number", "rookie_year", "season"),
+                  "penalties", "Year", "draftround", "draft_number", "rookie_year", "season", "birth_year"),
     
     "Blocking" = c("player_id", "player_game_count", "declined_penalties", "franchise_id", 
-                   "Year", "draftround", "draft_number", "rookie_year", "season"),
+                   "Year", "draftround", "draft_number", "rookie_year", "season", "birth_year"),
     
     "Receiving" = c("player_id", "player_game_count", "declined_penalties", "franchise_id", 
                     "grades_hands_fumble", "grades_pass_block", "interceptions", "longest", 
-                    "pass_block_rate", "pass_blocks", "Year", "draftround", "draft_number", "rookie_year", "season")
+                    "pass_block_rate", "pass_blocks", "Year", "draftround", "draft_number", "rookie_year", "season", "birth_year")
   )
   
   # Update Inputs for Scatterplots (Exclude unwanted variables)
@@ -751,7 +1081,7 @@ server <- function(input, output, session) {
   })
   
   # ✅ Render Scheme Alignment Chart with Custom Gradient
-  output$scheme_alignment_chart <- renderPlot({
+  output$scheme_alignment_chart <- renderPlotly({
     req(input$scheme_position, input$scheme_player, input$scheme_metric, input$scheme_x_axis)
     
     dataset <- filtered_data()  # Get dataset
@@ -761,11 +1091,11 @@ server <- function(input, output, session) {
         input$scheme_x_axis %in% colnames(dataset), 
         "grades" %in% colnames(dataset))
     
-    # ✅ Compute the **mean grade** for the selected position based on user-selected X-axis (Year or season)
+    # ✅ Compute the **mean grade** for the selected position based on user-selected X-axis (Year or Season)
     avg_position_data <- dataset %>%
       filter(position == input$scheme_position) %>%
       group_by(.data[[input$scheme_x_axis]]) %>%
-      summarize(mean_grade = mean(grades, na.rm = TRUE), .groups = "drop")
+      summarize(mean_grade = mean(grades, na.rm = TRUE), count = n(), .groups = "drop")
     
     # ✅ Filter dataset for the selected player
     player_data <- dataset %>% filter(player == input$scheme_player)
@@ -779,42 +1109,74 @@ server <- function(input, output, session) {
     min_relative_grade <- min(dataset$grades - avg_position_data$mean_grade, na.rm = TRUE)
     max_relative_grade <- max(dataset$grades - avg_position_data$mean_grade, na.rm = TRUE)
     
-    # ✅ Base Plot with Mean Trend (Dashed Line for Position Average Scheme Metric)
-    p <- ggplot() +
-      geom_line(data = dataset %>%
-                  filter(position == input$scheme_position) %>%
-                  group_by(.data[[input$scheme_x_axis]]) %>%
-                  summarize(mean_metric = mean(.data[[input$scheme_metric]], na.rm = TRUE), .groups = "drop"),
-                aes_string(
-                  x = input$scheme_x_axis, 
-                  y = "mean_metric"), 
-                color = "gray", linetype = "dashed", size = 1.2)
+    # ✅ Prepare the Mean Trend Data (Dashed Line for Position Average)
+    mean_trend_data <- dataset %>%
+      filter(position == input$scheme_position) %>%
+      group_by(.data[[input$scheme_x_axis]]) %>%
+      summarize(mean_metric = mean(.data[[input$scheme_metric]], na.rm = TRUE), count = n(), .groups = "drop")
     
-    # ✅ Ensure Player Data is Always Plotted as Points
-    p <- p + geom_point(data = player_data, aes_string(
-      x = input$scheme_x_axis, 
-      y = input$scheme_metric, 
-      color = "relative_grade"), 
-      size = 4)
+    # ✅ Create Interactive Plot with Plotly
+    p <- plot_ly() %>%
+      
+      # ✅ Add Mean Trend Line (Dashed)
+      add_trace(
+        data = mean_trend_data,
+        x = ~.data[[input$scheme_x_axis]],
+        y = ~mean_metric,
+        type = "scatter",
+        mode = "lines",
+        line = list(color = "gray", dash = "dash", width = 2),
+        hoverinfo = "text",
+        text = ~paste0(
+          "Entries: ", count, "<br>",
+          "Avg Metric: ", round(mean_metric, 2)
+        ),
+        name = paste(input$scheme_position, "Avg")
+      ) %>%
+      
+      # ✅ Add Player Points with Color Gradient
+      # ✅ Player Points with Improved Color Bar Placement
+      add_trace(
+        data = player_data,
+        x = ~.data[[input$scheme_x_axis]],
+        y = ~.data[[input$scheme_metric]],
+        type = "scatter",
+        mode = "markers",
+        marker = list(
+          size = 7,
+          color = ~relative_grade,
+          colorscale = list(c(0, 0.25, 0.5, 0.75, 1), c("darkblue", "blue", "purple", "red", "darkred")),
+
+          
+          # ✅ Adjust Color Bar Size & Placement
+          colorbar = list(
+            title = "Relative Grade",
+            len = 0.4,  # ✅ Makes the scale **40% the height** of the figure (smaller)
+            x = 1.05,   # ✅ Moves it **closer to the plot** (right)
+            y = 0.5,    # ✅ Centers it **vertically**
+            thickness = 15  # ✅ Reduces the **width** of the scale
+          )
+        ),
+        hoverinfo = "text",
+        text = ~paste0(
+          "Player: ", input$scheme_player, "<br>",
+          input$scheme_metric, ": ", round(.data[[input$scheme_metric]], 2), "<br>",
+          "Relative Grade: ", round(relative_grade, 2)
+        ),
+        name = input$scheme_player
+      ) %>%
+      
+      # ✅ Layout Adjustments
+      layout(
+        title = paste(input$scheme_player, "vs. Position Average"),
+        xaxis = list(title = input$scheme_x_axis),
+        yaxis = list(title = input$scheme_metric),
+        legend = list(title = list(text = "Legend"))
+      )
     
-    # ✅ Apply Custom Gradient Coloring for Relative Grade
-    p <- p + scale_color_gradientn(
-      colors = c("darkblue", "blue", "purple", "red", "darkred"),
-      values = scales::rescale(c(min_relative_grade, -10, 0, 10, max_relative_grade)),  
-      limits = c(min_relative_grade, max_relative_grade),
-      name = "Relative Grade"
-    )
-    
-    # ✅ Labels & Theme
-    p <- p + labs(
-      title = paste(input$scheme_player, "vs. Position Average"),
-      x = input$scheme_x_axis,
-      y = input$scheme_metric
-    ) +
-      theme_minimal()
-    
-    p
+    return(p)
   })
+  
   
   
   # Metric Over Time Tab - Server Logic
@@ -872,19 +1234,19 @@ server <- function(input, output, session) {
                                        "completion_percent", "dropbacks", "grades_offense", "grades_pass", "grades_run", 
                                        "qb_rating", "sack_percent", "scrambles"),
                              "HB"  = c("ypa", "avoided_tackles", "breakaway_attempts", "breakaway_percent", "breakaway_yards", 
-                                       "grades_pass_block", "grades_run_block", "rec_yards", "routes", "run_plays", 
+                                       "grades_offense", "grades_pass_block", "grades_run_block", "rec_yards", "routes", "run_plays", 
                                        "total_touches", "yards_after_contact", "yprr", "zone_attempts"),
-                             "WR"  = c("drop_rate", "caught_percent", "contested_catch_rate", "grades_hands_drop", "pass_plays", 
+                             "WR"  = c("drop_rate", "caught_percent", "contested_catch_rate", "grades_offense", "grades_hands_drop", "pass_plays", 
                                        "route_rate", "targeted_qb_rating", "yards_after_catch_per_reception", "yprr", "avoided_tackles"),
-                             "TE"  = c("drop_rate", "caught_percent", "contested_catch_rate", "grades_hands_drop", "pass_plays", 
+                             "TE"  = c("drop_rate", "caught_percent", "contested_catch_rate", "grades_offense", "grades_hands_drop", "pass_plays", 
                                        "route_rate", "targeted_qb_rating", "yards_after_catch_per_reception", "grades_pass_block", 
                                        "grades_run_block"),
                              "C"   = c("pbe", "hits_allowed", "hurries_allowed", "pressures_allowed", "sacks_allowed", 
-                                       "snap_counts_block", "grades_pass_block", "grades_run_block"),
+                                       "snap_counts_block", "grades_offense", "grades_pass_block", "grades_run_block"),
                              "G"   = c("pbe", "hits_allowed", "hurries_allowed", "pressures_allowed", "sacks_allowed", 
-                                       "snap_counts_block", "grades_pass_block", "grades_run_block"),
+                                       "snap_counts_block", "grades_offense", "grades_pass_block", "grades_run_block"),
                              "T"   = c("pbe", "hits_allowed", "hurries_allowed", "pressures_allowed", "sacks_allowed", 
-                                       "snap_counts_block", "grades_pass_block", "grades_run_block"),
+                                       "snap_counts_block", "grades_offense", "grades_pass_block", "grades_run_block"),
                              character(0)  # Default empty if no match
     )
     
@@ -895,8 +1257,8 @@ server <- function(input, output, session) {
   })
   
   # ✅ Render Metric Over Time Plot
-  output$metric_over_time_chart <- renderPlot({
-    req(input$metric_position, input$metric_variable)
+  output$metric_over_time_chart <- renderPlotly({
+    req(input$metric_position, input$metric_variable, input$metric_x_axis)
     
     dataset <- filtered_data()
     
@@ -922,29 +1284,41 @@ server <- function(input, output, session) {
     # ✅ Ensure valid selection
     req(input$metric_position %in% dataset$position)
     
-    # ✅ Compute mean value over time for position
+    # ✅ Compute mean value over time (Age or Season)
     avg_position_data <- dataset %>%
       filter(position == input$metric_position) %>%
-      group_by(season) %>%
-      summarize(mean_value = mean(.data[[input$metric_variable]], na.rm = TRUE), .groups = "drop")
+      group_by(.data[[input$metric_x_axis]]) %>%
+      summarize(mean_value = mean(.data[[input$metric_variable]], na.rm = TRUE), count = n(), .groups = "drop")
     
     # ✅ Highlight Player Data
     highlight_player_data <- dataset %>%
       filter(player == input$metric_highlight_player & position == input$metric_position)
     
-    # ✅ Base Plot
+    # ✅ Base Plot with Correct Grouping
     p <- ggplot() +
-      geom_line(data = avg_position_data, aes(x = season, y = mean_value), color = "gray", linetype = "dashed", size = 1.2) +
-      geom_point(data = highlight_player_data, aes(x = season, y = .data[[input$metric_variable]]), 
+      geom_line(data = avg_position_data, 
+                aes(x = .data[[input$metric_x_axis]], y = mean_value, 
+                    group = 1,  # ✅ Ensure the average line is treated as a single line
+                    text = paste0("Entries: ", count, "<br>Mean Value: ", round(mean_value, 2))),
+                color = "gray", linetype = "dashed", size = 1.2) +
+      
+      geom_point(data = highlight_player_data, 
+                 aes(x = .data[[input$metric_x_axis]], y = .data[[input$metric_variable]], 
+                     text = paste0("Player: ", input$metric_highlight_player, 
+                                   "<br>Value: ", round(.data[[input$metric_variable]], 2))),
                  color = "blue", size = 3) +
+      
       theme_minimal() +
       labs(title = paste("Comparison of", input$metric_highlight_player, "vs Position Average"),
-           x = "Season", y = input$metric_variable)
+           x = input$metric_x_axis, y = input$metric_variable)
     
-    p
+    # ✅ Convert to Plotly with Tooltip
+    ggplotly(p, tooltip = "text")
   })
+  
 }
 
 
 # Run the app
 shinyApp(ui, server)
+
